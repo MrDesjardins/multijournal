@@ -142,6 +142,16 @@
     background: rgba(255, 255, 255, 0.03);
   }
 
+  .log-container .line.warn {
+    background: rgba(210, 153, 34, 0.1);
+    color: #e3b341;
+  }
+
+  .log-container .line.error {
+    background: rgba(248, 81, 73, 0.12);
+    color: #f88070;
+  }
+
   .log-container .status {
     color: #8b949e;
     font-style: italic;
@@ -283,8 +293,16 @@ function connectWebSocket(service, logContainer, statusLine, indicator) {
       statusLine.remove();
     }
     const line = document.createElement("div");
-    line.className = "line";
-    line.textContent = event.data;
+    const text = event.data;
+    const lower = text.toLowerCase();
+    let cls = "line";
+    if (/\b(error|crit|alert|emerg|fatal|exception|traceback)\b/i.test(text)) {
+      cls += " error";
+    } else if (/\b(warn|warning)\b/i.test(text)) {
+      cls += " warn";
+    }
+    line.className = cls;
+    line.textContent = text;
     logContainer.appendChild(line);
 
     const threshold = 50;
