@@ -1,0 +1,14 @@
+[Unit]
+Description=Multijournal - Systemd Journal Log Streamer
+After=network.target
+
+[Service]
+Type=simple
+User=miste
+WorkingDirectory=/home/pdesjardins/code/multijournal
+ExecStart=/home/pdesjardins/.local/bin/uv run multijournal
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

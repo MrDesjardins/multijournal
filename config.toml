@@ -1,0 +1,25 @@
+[settings]
+host = "0.0.0.0"
+port = 8092
+lines = 100
+
+[[services]]
+name = "Discord Siege Bot"
+unit = "gametimescheduler.service"
+
+[[services]]
+name = "Youtube Radio"
+unit = "audio-stream.service"
+
+[[services]]
+name = "Google Home Audiobook"
+unit = "audio-book.service"
+
+[[services]]
+name = "Trilium AI Web (Web)"
+unit = "trilium-ai-web.service"
+
+[[services]]
+name = "Trilium AI Web (Sync)"
+unit = "trilium-ai-sync.service"
+
