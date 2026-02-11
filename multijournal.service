@@ -4,9 +4,10 @@ After=network.target
 
 [Service]
 Type=simple
-User=miste
+User=pdesjardins
+Group=pdesjardins
 WorkingDirectory=/home/pdesjardins/code/multijournal
-ExecStart=/home/pdesjardins/.local/bin/uv run multijournal
+ExecStart=/home/pdesjardins/.local/bin/uv run src/multijournal/main.py
 Restart=on-failure
 RestartSec=5
 
