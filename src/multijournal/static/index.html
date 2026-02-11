@@ -30,6 +30,37 @@
     font-weight: 700;
     color: #e6edf3;
     text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    flex: 1;
+  }
+
+  .toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+    color: #c9d1d9;
+    background: #2d3239;
+    box-shadow:
+      4px 4px 8px #232830,
+      -4px -4px 8px #373c42;
+    transition: all 0.15s;
+    user-select: none;
+  }
+
+  .toggle-btn:hover {
+    background: #333940;
+  }
+
+  .toggle-btn.active {
+    box-shadow:
+      inset 2px 2px 4px #232830,
+      inset -2px -2px 4px #373c42;
+    color: #3fb950;
   }
 
   #grid {
@@ -210,12 +241,27 @@
 <body>
 <header>
   <h1>Service Journals</h1>
+  <button id="autoScrollToggle" class="toggle-btn active" onclick="toggleAutoScroll()">
+    &#8615; Auto-scroll
+  </button>
 </header>
 <div id="grid"></div>
 
 <script>
 const grid = document.getElementById("grid");
 let fullscreenUnit = null;
+let autoScroll = true;
+
+function toggleAutoScroll() {
+  autoScroll = !autoScroll;
+  const btn = document.getElementById("autoScrollToggle");
+  btn.classList.toggle("active", autoScroll);
+  if (autoScroll) {
+    document.querySelectorAll(".log-container").forEach(c => {
+      c.scrollTop = c.scrollHeight;
+    });
+  }
+}
 
 function setFullscreen(unit) {
   if (fullscreenUnit === unit) {
@@ -305,9 +351,7 @@ function connectWebSocket(service, logContainer, statusLine, indicator) {
     line.textContent = text;
     logContainer.appendChild(line);
 
-    const threshold = 50;
-    const atBottom = logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight < threshold;
-    if (atBottom) {
+    if (autoScroll) {
       logContainer.scrollTop = logContainer.scrollHeight;
     }
   };
