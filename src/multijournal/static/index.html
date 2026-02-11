@@ -9,7 +9,7 @@
 
   body {
     font-family: system-ui, -apple-system, sans-serif;
-    background: #0d1117;
+    background: #2d3239;
     color: #c9d1d9;
     height: 100vh;
     display: flex;
@@ -17,9 +17,8 @@
   }
 
   header {
-    padding: 12px 20px;
-    background: #161b22;
-    border-bottom: 1px solid #30363d;
+    padding: 14px 24px;
+    background: #2d3239;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -27,41 +26,64 @@
   }
 
   header h1 {
-    font-size: 18px;
-    font-weight: 600;
+    font-size: 20px;
+    font-weight: 700;
     color: #e6edf3;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
   }
 
   #grid {
     flex: 1;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
-    gap: 1px;
-    background: #30363d;
+    gap: 16px;
+    padding: 0 16px 16px;
     overflow: hidden;
+  }
+
+  /* Responsive grid: fixed columns based on service count */
+  #grid.cols-1 { grid-template-columns: 1fr; }
+  #grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  #grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  #grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
+  #grid.cols-5 { grid-template-columns: repeat(3, 1fr); }
+  #grid.cols-6 { grid-template-columns: repeat(3, 1fr); }
+
+  @media (max-width: 1200px) {
+    #grid.cols-3, #grid.cols-5, #grid.cols-6 { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 768px) {
+    #grid.cols-2, #grid.cols-3, #grid.cols-4,
+    #grid.cols-5, #grid.cols-6 { grid-template-columns: 1fr; }
   }
 
   .panel {
     display: flex;
     flex-direction: column;
-    background: #0d1117;
+    background: #2d3239;
+    border-radius: 16px;
+    box-shadow:
+      8px 8px 16px #232830,
+      -8px -8px 16px #373c42;
     min-height: 0;
+    overflow: hidden;
   }
 
   .panel-header {
-    padding: 8px 14px;
-    background: #161b22;
-    border-bottom: 1px solid #30363d;
+    padding: 12px 18px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-shrink: 0;
     user-select: none;
+    background: #2d3239;
+    border-radius: 16px 16px 0 0;
+    transition: background 0.15s;
   }
 
   .panel-header:hover {
-    background: #1c2129;
+    background: #333940;
   }
 
   .panel-header .name {
@@ -74,21 +96,39 @@
     font-size: 11px;
     color: #8b949e;
     font-family: monospace;
+    margin-top: 2px;
   }
 
   .panel-header .expand-icon {
-    font-size: 14px;
+    font-size: 16px;
     color: #8b949e;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #2d3239;
+    box-shadow:
+      inset 2px 2px 4px #232830,
+      inset -2px -2px 4px #373c42;
+    flex-shrink: 0;
   }
 
   .log-container {
     flex: 1;
     overflow-y: auto;
-    padding: 8px 14px;
+    margin: 0 10px 10px;
+    padding: 10px 14px;
     font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", monospace;
     font-size: 12px;
-    line-height: 1.5;
+    line-height: 1.6;
     min-height: 0;
+    background: #252a30;
+    border-radius: 12px;
+    box-shadow:
+      inset 4px 4px 8px #1e2228,
+      inset -4px -4px 8px #2c3138;
   }
 
   .log-container .line {
@@ -101,9 +141,45 @@
     font-style: italic;
   }
 
+  /* Connection indicator */
+  .panel-header .indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #8b949e;
+    margin-right: 10px;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .panel-header .indicator.connected {
+    background: #3fb950;
+    box-shadow: 0 0 6px rgba(63, 185, 80, 0.4);
+  }
+
+  .panel-header .indicator.disconnected {
+    background: #f85149;
+    box-shadow: 0 0 6px rgba(248, 81, 73, 0.4);
+  }
+
+  /* Scrollbar */
+  .log-container::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .log-container::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .log-container::-webkit-scrollbar-thumb {
+    background: #444c56;
+    border-radius: 3px;
+  }
+
   /* Fullscreen mode */
   body.fullscreen #grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    padding: 0 16px 16px;
   }
 
   body.fullscreen .panel {
@@ -152,13 +228,24 @@ function createPanel(service) {
 
   const header = document.createElement("div");
   header.className = "panel-header";
-  header.innerHTML = `
-    <div>
-      <div class="name">${esc(service.name)}</div>
-      <div class="unit">${esc(service.unit)}</div>
-    </div>
-    <span class="expand-icon">⤢</span>
+
+  const indicator = document.createElement("div");
+  indicator.className = "indicator";
+
+  const info = document.createElement("div");
+  info.innerHTML = `
+    <div class="name">${esc(service.name)}</div>
+    <div class="unit">${esc(service.unit)}</div>
   `;
+
+  const expandIcon = document.createElement("span");
+  expandIcon.className = "expand-icon";
+  expandIcon.textContent = "\u2922";
+
+  header.appendChild(indicator);
+  header.appendChild(info);
+  info.style.flex = "1";
+  header.appendChild(expandIcon);
   header.addEventListener("click", () => setFullscreen(service.unit));
 
   const logContainer = document.createElement("div");
@@ -173,15 +260,16 @@ function createPanel(service) {
   panel.appendChild(logContainer);
   grid.appendChild(panel);
 
-  connectWebSocket(service, logContainer, statusLine);
+  connectWebSocket(service, logContainer, statusLine, indicator);
 }
 
-function connectWebSocket(service, logContainer, statusLine) {
+function connectWebSocket(service, logContainer, statusLine, indicator) {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   const ws = new WebSocket(`${proto}//${location.host}/ws/${service.unit}`);
 
   ws.onopen = () => {
     statusLine.textContent = "Connected. Waiting for logs...";
+    indicator.className = "indicator connected";
   };
 
   ws.onmessage = (event) => {
@@ -193,7 +281,6 @@ function connectWebSocket(service, logContainer, statusLine) {
     line.textContent = event.data;
     logContainer.appendChild(line);
 
-    // Auto-scroll if near bottom
     const threshold = 50;
     const atBottom = logContainer.scrollHeight - logContainer.scrollTop - logContainer.clientHeight < threshold;
     if (atBottom) {
@@ -202,6 +289,7 @@ function connectWebSocket(service, logContainer, statusLine) {
   };
 
   ws.onclose = () => {
+    indicator.className = "indicator disconnected";
     const line = document.createElement("div");
     line.className = "line status";
     line.textContent = "Disconnected. Reconnecting in 3s...";
@@ -211,7 +299,7 @@ function connectWebSocket(service, logContainer, statusLine) {
       newStatus.className = "line status";
       newStatus.textContent = "Reconnecting...";
       logContainer.appendChild(newStatus);
-      connectWebSocket(service, logContainer, newStatus);
+      connectWebSocket(service, logContainer, newStatus, indicator);
     }, 3000);
   };
 }
@@ -222,9 +310,15 @@ function esc(str) {
   return d.innerHTML;
 }
 
+function applyGridLayout(count) {
+  const cls = count > 6 ? "cols-6" : `cols-${count}`;
+  grid.className = cls;
+}
+
 async function init() {
   const res = await fetch("/api/services");
   const services = await res.json();
+  applyGridLayout(services.length);
   services.forEach(createPanel);
 }
 

@@ -60,3 +60,10 @@ uv run ruff check src/   # lint
 uv run ruff format src/  # format
 uv run mypy src/          # type check
 ```
+
+
+## Check Logs
+
+```bash
+sudo journalctl -u multijournal.service -n 500 -f
+```
