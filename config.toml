@@ -6,20 +6,25 @@ lines = 200
 [[services]]
 name = "Discord Siege Bot"
 unit = "gametimescheduler.service"
+directory = "/home/miste/code/python-discord-scheduler-bot"
 
 [[services]]
 name = "Youtube Radio"
 unit = "audio-stream.service"
+directory = "/home/miste/code/audio-stream-server"
 
 [[services]]
 name = "Google Home Audiobook"
 unit = "audio-book.service"
+directory = "/home/miste/code/audio-stream-google-home"
 
 [[services]]
 name = "Trilium AI Web (Web)"
 unit = "trilium-ai-web.service"
+directory = "/home/miste/code/trilium-ai"
 
 [[services]]
 name = "Trilium AI Web (Sync)"
 unit = "trilium-ai-sync.service"
+directory = "/home/miste/code/python-discord-scheduler-bot"
 

@@ -58,7 +58,7 @@ This pulls the latest code, syncs dependencies, and restarts the service.
 ```bash
 uv run ruff check src/   # lint
 uv run ruff format src/  # format
-uv run mypy src/          # type check
+uv run mypy src/         # type check
 ```
 
 

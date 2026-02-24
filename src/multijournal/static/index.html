@@ -236,7 +236,41 @@
   body.fullscreen .panel.active {
     display: flex;
   }
+
+#term-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,.7);
+  z-index: 1000; display: flex; align-items: center; justify-content: center;
+}
+#term-modal {
+  background: #1a1e24; border-radius: 12px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.6);
+  width: 85vw; height: 80vh; display: flex; flex-direction: column; overflow: hidden;
+}
+#term-header {
+  padding: 10px 16px; background: #252a30; display: flex;
+  align-items: center; justify-content: space-between; flex-shrink: 0;
+  border-radius: 12px 12px 0 0;
+}
+#term-header span { font-size: 13px; font-weight: 600; color: #e6edf3; }
+#term-header button {
+  background: none; border: none; color: #8b949e; font-size: 18px;
+  cursor: pointer; padding: 4px 8px; border-radius: 6px; line-height: 1;
+}
+#term-header button:hover { color: #e6edf3; }
+#term-container { flex: 1; padding: 8px; min-height: 0; }
+.term-btn {
+  width: 28px; height: 28px; border: none; border-radius: 7px;
+  background: #2d3239; color: #8b949e; font-size: 12px; font-weight: 700;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: 2px 2px 5px #232830, -2px -2px 5px #373c42;
+  margin-right: 8px; flex-shrink: 0; transition: color .15s;
+}
+.term-btn:hover { color: #3fb950; }
+.term-btn:disabled { opacity: .35; cursor: not-allowed; }
 </style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css"/>
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
 </head>
 <body>
 <header>
@@ -246,6 +280,16 @@
   </button>
 </header>
 <div id="grid"></div>
+
+<div id="term-overlay" style="display:none">
+  <div id="term-modal">
+    <div id="term-header">
+      <span id="term-title"></span>
+      <button onclick="closeTerminal()">&#10005;</button>
+    </div>
+    <div id="term-container"></div>
+  </div>
+</div>
 
 <script>
 const grid = document.getElementById("grid");
@@ -278,8 +322,12 @@ function setFullscreen(unit) {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && fullscreenUnit) {
-    setFullscreen(fullscreenUnit);
+  if (e.key === "Escape") {
+    if (activeTerm) {
+      closeTerminal();
+    } else if (fullscreenUnit) {
+      setFullscreen(fullscreenUnit);
+    }
   }
 });
 
@@ -307,6 +355,14 @@ function createPanel(service) {
   header.appendChild(indicator);
   header.appendChild(info);
   info.style.flex = "1";
+  if (service.has_terminal) {
+    const btn = document.createElement("button");
+    btn.className = "term-btn";
+    btn.title = "Open terminal";
+    btn.textContent = ">_";
+    btn.addEventListener("click", e => { e.stopPropagation(); openTerminal(service); });
+    header.appendChild(btn);
+  }
   header.appendChild(expandIcon);
   header.addEventListener("click", () => setFullscreen(service.unit));
 
@@ -370,6 +426,52 @@ function connectWebSocket(service, logContainer, statusLine, indicator) {
       connectWebSocket(service, logContainer, newStatus, indicator);
     }, 3000);
   };
+}
+
+let activeTerm = null, activeTermWs = null, termResizeObs = null;
+
+function openTerminal(service) {
+  document.getElementById("term-title").textContent = `Terminal \u2014 ${esc(service.name)}`;
+  document.getElementById("term-container").innerHTML = "";
+  document.getElementById("term-overlay").style.display = "flex";
+
+  const term = new Terminal({
+    theme: { background: "#1a1e24", foreground: "#c9d1d9", cursor: "#e6edf3", selectionBackground: "#3fb95040" },
+    fontFamily: '"Cascadia Code","Fira Code","JetBrains Mono",monospace',
+    fontSize: 13, cursorBlink: true, scrollback: 5000,
+  });
+  const fit = new FitAddon.FitAddon();
+  term.loadAddon(fit);
+  term.open(document.getElementById("term-container"));
+
+  requestAnimationFrame(() => {
+    fit.fit();
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    const ws = new WebSocket(`${proto}//${location.host}/ws/terminal/${service.index}`);
+    ws.binaryType = "arraybuffer";
+
+    ws.onopen = () => ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+    ws.onmessage = e => term.write(new Uint8Array(e.data));
+    ws.onclose = () => term.writeln("\r\n\x1b[90m[session ended]\x1b[0m");
+    term.onData(data => ws.readyState === WebSocket.OPEN && ws.send(new TextEncoder().encode(data)));
+
+    termResizeObs = new ResizeObserver(() => {
+      fit.fit();
+      if (ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+    });
+    termResizeObs.observe(document.getElementById("term-container"));
+
+    activeTerm = term;
+    activeTermWs = ws;
+  });
+}
+
+function closeTerminal() {
+  document.getElementById("term-overlay").style.display = "none";
+  if (termResizeObs) { termResizeObs.disconnect(); termResizeObs = null; }
+  if (activeTermWs)  { activeTermWs.close(); activeTermWs = null; }
+  if (activeTerm)    { activeTerm.dispose(); activeTerm = null; }
 }
 
 function esc(str) {
