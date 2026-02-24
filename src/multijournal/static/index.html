@@ -246,6 +246,10 @@
   box-shadow: 0 8px 40px rgba(0,0,0,.6);
   width: 85vw; height: 80vh; display: flex; flex-direction: column; overflow: hidden;
 }
+@media (max-width: 768px) {
+  #term-overlay { align-items: flex-start; }
+  #term-modal { width: 100vw; height: 100dvh; border-radius: 0; box-shadow: none; }
+}
 #term-header {
   padding: 10px 16px; background: #252a30; display: flex;
   align-items: center; justify-content: space-between; flex-shrink: 0;
@@ -428,7 +432,7 @@ function connectWebSocket(service, logContainer, statusLine, indicator) {
   };
 }
 
-let activeTerm = null, activeTermWs = null, termResizeObs = null;
+let activeTerm = null, activeTermWs = null, termResizeObs = null, activeTermVVListener = null;
 
 function openTerminal(service) {
   document.getElementById("term-title").textContent = `Terminal \u2014 ${esc(service.name)}`;
@@ -444,32 +448,45 @@ function openTerminal(service) {
   term.loadAddon(fit);
   term.open(document.getElementById("term-container"));
 
-  requestAnimationFrame(() => {
+  // Double RAF ensures flex layout is fully resolved before xterm measures the container
+  requestAnimationFrame(() => requestAnimationFrame(() => {
     fit.fit();
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     const ws = new WebSocket(`${proto}//${location.host}/ws/terminal/${service.index}`);
     ws.binaryType = "arraybuffer";
+
+    const sendResize = () => {
+      fit.fit();
+      if (ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+    };
 
     ws.onopen = () => ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
     ws.onmessage = e => term.write(new Uint8Array(e.data));
     ws.onclose = () => term.writeln("\r\n\x1b[90m[session ended]\x1b[0m");
     term.onData(data => ws.readyState === WebSocket.OPEN && ws.send(new TextEncoder().encode(data)));
 
-    termResizeObs = new ResizeObserver(() => {
-      fit.fit();
-      if (ws.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-    });
+    termResizeObs = new ResizeObserver(sendResize);
     termResizeObs.observe(document.getElementById("term-container"));
+
+    // Refit when mobile soft keyboard shows/hides
+    if (window.visualViewport) {
+      activeTermVVListener = sendResize;
+      window.visualViewport.addEventListener("resize", sendResize);
+    }
 
     activeTerm = term;
     activeTermWs = ws;
-  });
+  }));
 }
 
 function closeTerminal() {
   document.getElementById("term-overlay").style.display = "none";
   if (termResizeObs) { termResizeObs.disconnect(); termResizeObs = null; }
+  if (window.visualViewport && activeTermVVListener) {
+    window.visualViewport.removeEventListener("resize", activeTermVVListener);
+    activeTermVVListener = null;
+  }
   if (activeTermWs)  { activeTermWs.close(); activeTermWs = null; }
   if (activeTerm)    { activeTerm.dispose(); activeTerm = null; }
 }
