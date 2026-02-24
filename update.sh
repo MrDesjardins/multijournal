@@ -13,4 +13,4 @@ echo "Restarting service..."
 sudo systemctl restart multijournal.service
 
 echo "Done. Status:"
-sudo systemctl status multijournal.service --no-pager
+systemctl status multijournal.service --no-pager
