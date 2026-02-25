@@ -247,21 +247,25 @@
   width: 85vw; height: 80vh; display: flex; flex-direction: column; overflow: hidden;
 }
 @media (max-width: 768px) {
-  #term-overlay { align-items: flex-start; }
-  #term-modal { width: 100vw; height: 100dvh; border-radius: 0; box-shadow: none; }
+  #term-modal { position: fixed; inset: 0; width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
 }
 #term-header {
   padding: 10px 16px; background: #252a30; display: flex;
   align-items: center; justify-content: space-between; flex-shrink: 0;
   border-radius: 12px 12px 0 0;
 }
-#term-header span { font-size: 13px; font-weight: 600; color: #e6edf3; }
+#term-header span {
+  font-size: 13px; font-weight: 600; color: #e6edf3;
+  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 #term-header button {
-  background: none; border: none; color: #8b949e; font-size: 18px;
-  cursor: pointer; padding: 4px 8px; border-radius: 6px; line-height: 1;
+  background: none; border: none; color: #c9d1d9; font-size: 20px;
+  cursor: pointer; padding: 6px 10px; border-radius: 6px; line-height: 1;
+  flex-shrink: 0; min-width: 44px; min-height: 44px; display: flex;
+  align-items: center; justify-content: center;
 }
 #term-header button:hover { color: #e6edf3; }
-#term-container { flex: 1; padding: 8px; min-height: 0; }
+#term-container { flex: 1; padding: 8px; min-height: 0; overflow: hidden; min-width: 0; }
 .term-btn {
   width: 28px; height: 28px; border: none; border-radius: 7px;
   background: #2d3239; color: #8b949e; font-size: 12px; font-weight: 700;
@@ -271,6 +275,41 @@
 }
 .term-btn:hover { color: #3fb950; }
 .term-btn:disabled { opacity: .35; cursor: not-allowed; }
+#mobile-kb {
+  flex-shrink: 0;
+  background: #252a30;
+  border-top: 1px solid #333940;
+  padding: 8px 8px 12px;
+}
+#mobile-kb-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#mobile-kb-row::-webkit-scrollbar { display: none; }
+.mobile-key {
+  flex-shrink: 0;
+  min-width: 44px;
+  height: 40px;
+  padding: 0 12px;
+  background: #2d3239;
+  border: none;
+  border-radius: 8px;
+  color: #c9d1d9;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 2px 2px 5px #232830, -2px -2px 5px #373c42;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+.mobile-key:active {
+  box-shadow: inset 2px 2px 4px #232830, inset -2px -2px 4px #373c42;
+  color: #3fb950;
+}
 </style>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css"/>
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
@@ -292,6 +331,18 @@
       <button onclick="closeTerminal()">&#10005;</button>
     </div>
     <div id="term-container"></div>
+    <div id="mobile-kb" style="display:none">
+      <div id="mobile-kb-row">
+        <button class="mobile-key" id="mk-kbd">⌨</button>
+        <button class="mobile-key" id="mk-tab">Tab</button>
+        <button class="mobile-key" id="mk-ctrlc">^C</button>
+        <button class="mobile-key" id="mk-esc">Esc</button>
+        <button class="mobile-key" id="mk-up">↑</button>
+        <button class="mobile-key" id="mk-down">↓</button>
+        <button class="mobile-key" id="mk-left">←</button>
+        <button class="mobile-key" id="mk-right">→</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -439,14 +490,16 @@ function openTerminal(service) {
   document.getElementById("term-container").innerHTML = "";
   document.getElementById("term-overlay").style.display = "flex";
 
+  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
   const term = new Terminal({
     theme: { background: "#1a1e24", foreground: "#c9d1d9", cursor: "#e6edf3", selectionBackground: "#3fb95040" },
     fontFamily: '"Cascadia Code","Fira Code","JetBrains Mono",monospace',
-    fontSize: 13, cursorBlink: true, scrollback: 5000,
+    fontSize: isMobile ? 14 : 13, cursorBlink: true, scrollback: 5000,
   });
   const fit = new FitAddon.FitAddon();
   term.loadAddon(fit);
   term.open(document.getElementById("term-container"));
+  if (isMobile) document.getElementById("mobile-kb").style.display = "block";
 
   // Double RAF ensures flex layout is fully resolved before xterm measures the container
   requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -482,6 +535,7 @@ function openTerminal(service) {
 
 function closeTerminal() {
   document.getElementById("term-overlay").style.display = "none";
+  document.getElementById("mobile-kb").style.display = "none";
   if (termResizeObs) { termResizeObs.disconnect(); termResizeObs = null; }
   if (window.visualViewport && activeTermVVListener) {
     window.visualViewport.removeEventListener("resize", activeTermVVListener);
@@ -508,6 +562,31 @@ async function init() {
   applyGridLayout(services.length);
   services.forEach(createPanel);
 }
+
+// Mobile keyboard toolbar
+const MOBILE_KEY_SEQS = {
+  'mk-tab':   '\t',
+  'mk-ctrlc': '\x03',
+  'mk-esc':   '\x1b',
+  'mk-up':    '\x1b[A',
+  'mk-down':  '\x1b[B',
+  'mk-left':  '\x1b[D',
+  'mk-right': '\x1b[C',
+};
+Object.entries(MOBILE_KEY_SEQS).forEach(([id, seq]) => {
+  document.getElementById(id).addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (activeTermWs?.readyState === WebSocket.OPEN)
+      activeTermWs.send(new TextEncoder().encode(seq));
+  }, { passive: false });
+});
+document.getElementById('mk-kbd').addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  if (activeTerm) activeTerm.focus();
+}, { passive: false });
+document.getElementById('term-container').addEventListener('touchend', () => {
+  if (activeTerm) activeTerm.focus();
+});
 
 init();
 </script>
