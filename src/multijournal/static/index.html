@@ -506,12 +506,20 @@ function openTerminal(service) {
   term.loadAddon(fit);
   term.open(document.getElementById("term-container"));
 
-  // Fix Bluetooth keyboard on iOS: xterm.js keeps typed text in the hidden
-  // textarea so it can diff changes on mobile. When Enter is pressed, iOS
-  // QuickType sees e.g. "ls" in the textarea and fires 'beforeinput' with
-  // inputType="insertReplacementText" to replace it with an autocomplete word
-  // (producing "lsle" etc.). We cancel that event, and also clear the textarea
-  // on Enter keydown so iOS has nothing to autocomplete against.
+  // Fix iOS QuickType autocomplete injecting text into the terminal.
+  //
+  // How the bug works: xterm.js keeps typed characters in its hidden <textarea>
+  // (e.g. "ls") so it can diff-track input on mobile. iOS intercepts Enter at
+  // the OS level, applies a QuickType suggestion ("ls" → "lsle"), fires the
+  // `input` event, and THEN dispatches the keydown to JS. This means both
+  // `beforeinput.preventDefault()` and clearing on `keydown` fire too late.
+  //
+  // Fix: attach a capture-phase `input` listener (runs before xterm.js's
+  // bubble-phase listener). Track the last "safe" textarea value after each
+  // legitimate input. When we detect an autocomplete insertion — either via
+  // inputType="insertReplacementText" or via a control key (Enter/Tab/…)
+  // that produced printable data — restore the textarea and block xterm.js
+  // from seeing the event via stopImmediatePropagation.
   if (isMobile && term.textarea) {
     const ta = term.textarea;
     ta.setAttribute('autocorrect', 'off');
@@ -519,21 +527,34 @@ function openTerminal(service) {
     ta.setAttribute('autocapitalize', 'none');
     ta.setAttribute('spellcheck', 'false');
 
-    // Layer 1: cancel the replacement before the DOM is mutated.
-    ta.addEventListener('beforeinput', (e) => {
-      if (e.inputType === 'insertReplacementText') {
-        e.preventDefault();
-      }
-    });
+    let safeValue = '';
+    let lastKeyWasControl = false;
 
-    // Layer 2: clear the textarea the moment Enter is pressed so iOS finds
-    // nothing to autocomplete even if beforeinput is not cancellable.
-    term.attachCustomKeyEventHandler((e) => {
-      if (e.type === 'keydown' && e.key === 'Enter') {
-        ta.value = '';
+    // After each legitimate input, snapshot the settled textarea value
+    // (microtask runs after xterm.js's own bubble handler has finished).
+    const updateSafeValue = () => Promise.resolve().then(() => { safeValue = ta.value; });
+
+    ta.addEventListener('keydown', (e) => {
+      lastKeyWasControl = e.key.length > 1 || e.ctrlKey || e.metaKey || e.altKey;
+    }, true);
+
+    ta.addEventListener('input', (e) => {
+      const isAutocomplete =
+        e.inputType === 'insertReplacementText' ||
+        // Fallback: a control key (Enter, Tab, …) was pressed but the event
+        // carries printable data — that is QuickType, not a real keystroke.
+        (lastKeyWasControl && !!e.data && e.inputType !== 'insertLineBreak');
+
+      lastKeyWasControl = false;
+
+      if (isAutocomplete) {
+        ta.value = safeValue;         // undo the autocomplete insertion
+        e.stopImmediatePropagation(); // block xterm.js's bubble-phase handler
+        return;
       }
-      return true; // xterm still handles the key normally
-    });
+
+      updateSafeValue();
+    }, true); // capture phase — runs before xterm.js
   }
 
   if (isMobile) document.getElementById("mobile-kb").style.display = "block";
