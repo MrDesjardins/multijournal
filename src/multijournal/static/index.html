@@ -246,9 +246,12 @@
   box-shadow: 0 8px 40px rgba(0,0,0,.6);
   width: 85vw; height: 80vh; display: flex; flex-direction: column; overflow: hidden;
 }
-/* Applied via JS when touch device is detected, covers all orientations */
-#term-modal.is-mobile { position: fixed; inset: 0; width: 100%; height: 100%; border-radius: 0; box-shadow: none; }
+/* Applied via JS when touch device is detected, covers all orientations.
+   inset:0 already pins all four edges; width/height:100% are redundant on fixed. */
+#term-modal.is-mobile { position: fixed; inset: 0; border-radius: 0; box-shadow: none; }
 #term-modal.is-mobile #term-header { border-radius: 0; }
+/* Belt-and-suspenders: stop any child from leaking outside the overlay */
+#term-overlay { overflow: hidden; }
 #term-header {
   padding: 10px 16px; background: #252a30; display: flex;
   align-items: center; justify-content: space-between; flex-shrink: 0;
@@ -523,21 +526,32 @@ function openTerminal(service) {
     const ws = new WebSocket(`${proto}//${location.host}/ws/terminal/${service.index}`);
     ws.binaryType = "arraybuffer";
 
-    // Debounce so rapid resize events (soft keyboard, orientation change) coalesce
-    let fitTimer = null;
-    const sendResize = () => {
-      clearTimeout(fitTimer);
-      fitTimer = setTimeout(() => {
-        fit.fit();
-        if (ws.readyState === WebSocket.OPEN)
-          ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-      }, 100);
-    };
-
     ws.onopen = () => ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
     ws.onmessage = e => term.write(new Uint8Array(e.data));
     ws.onclose = () => term.writeln("\r\n\x1b[90m[session ended]\x1b[0m");
     term.onData(data => ws.readyState === WebSocket.OPEN && ws.send(new TextEncoder().encode(data)));
+
+    // Smart debounce: orientation changes take ~300ms on iOS, so we track when
+    // the animation started and refuse to fit before 350ms have elapsed.
+    // Regular resize events (soft keyboard) still use the 100ms floor.
+    let fitTimer = null;
+    let orientationChangeEndTime = 0;
+    const doFit = () => {
+      fit.fit();
+      if (ws.readyState === WebSocket.OPEN)
+        ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
+    };
+    const sendResize = () => {
+      clearTimeout(fitTimer);
+      const delay = Math.max(100, orientationChangeEndTime - Date.now());
+      fitTimer = setTimeout(doFit, delay);
+    };
+    const onOrientationChange = () => {
+      // Block any fit for 350ms from now; ResizeObserver calls during the
+      // animation will keep pushing the timer but never fire before this wall.
+      orientationChangeEndTime = Date.now() + 350;
+      sendResize();
+    };
 
     termResizeObs = new ResizeObserver(sendResize);
     termResizeObs.observe(document.getElementById("term-container"));
@@ -549,8 +563,8 @@ function openTerminal(service) {
     }
 
     // Refit on orientation change (portrait ↔ landscape)
-    activeTermOrientationListener = sendResize;
-    window.addEventListener('orientationchange', sendResize);
+    activeTermOrientationListener = onOrientationChange;
+    window.addEventListener('orientationchange', onOrientationChange);
 
     activeTerm = term;
     activeTermWs = ws;
