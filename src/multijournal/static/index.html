@@ -506,15 +506,34 @@ function openTerminal(service) {
   term.loadAddon(fit);
   term.open(document.getElementById("term-container"));
 
-  // Fix Bluetooth keyboard on iOS: autocorrect/autocomplete intercepts keys like
-  // arrow, space, tab, enter via the hidden xterm textarea and injects word
-  // suggestions ("ls", "la", etc.). Force these attributes off explicitly.
+  // Fix Bluetooth keyboard on iOS: xterm.js keeps typed text in the hidden
+  // textarea so it can diff changes on mobile. When Enter is pressed, iOS
+  // QuickType sees e.g. "ls" in the textarea and fires 'beforeinput' with
+  // inputType="insertReplacementText" to replace it with an autocomplete word
+  // (producing "lsle" etc.). We cancel that event, and also clear the textarea
+  // on Enter keydown so iOS has nothing to autocomplete against.
   if (isMobile && term.textarea) {
     const ta = term.textarea;
     ta.setAttribute('autocorrect', 'off');
     ta.setAttribute('autocomplete', 'off');
     ta.setAttribute('autocapitalize', 'none');
     ta.setAttribute('spellcheck', 'false');
+
+    // Layer 1: cancel the replacement before the DOM is mutated.
+    ta.addEventListener('beforeinput', (e) => {
+      if (e.inputType === 'insertReplacementText') {
+        e.preventDefault();
+      }
+    });
+
+    // Layer 2: clear the textarea the moment Enter is pressed so iOS finds
+    // nothing to autocomplete even if beforeinput is not cancellable.
+    term.attachCustomKeyEventHandler((e) => {
+      if (e.type === 'keydown' && e.key === 'Enter') {
+        ta.value = '';
+      }
+      return true; // xterm still handles the key normally
+    });
   }
 
   if (isMobile) document.getElementById("mobile-kb").style.display = "block";
