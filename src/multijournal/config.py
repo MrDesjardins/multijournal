@@ -10,7 +10,6 @@ from pathlib import Path
 class ServiceConfig:
     name: str
     unit: str
-    directory: str | None = None
 
 
 @dataclass
@@ -48,7 +47,7 @@ def load_config(path: Path | None = None) -> AppConfig:
     )
 
     services = [
-        ServiceConfig(name=s["name"], unit=s["unit"], directory=s.get("directory"))
+        ServiceConfig(name=s["name"], unit=s["unit"])
         for s in data.get("services", [])
     ]
 

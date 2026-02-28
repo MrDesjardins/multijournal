@@ -237,86 +237,7 @@
     display: flex;
   }
 
-#term-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.7);
-  z-index: 1000; display: flex; align-items: center; justify-content: center;
-}
-#term-modal {
-  background: #1a1e24; border-radius: 12px;
-  box-shadow: 0 8px 40px rgba(0,0,0,.6);
-  width: 85vw; height: 80vh; display: flex; flex-direction: column; overflow: hidden;
-}
-/* Applied via JS when touch device is detected, covers all orientations.
-   inset:0 already pins all four edges; width/height:100% are redundant on fixed. */
-#term-modal.is-mobile { position: fixed; inset: 0; border-radius: 0; box-shadow: none; }
-#term-modal.is-mobile #term-header { border-radius: 0; }
-/* Belt-and-suspenders: stop any child from leaking outside the overlay */
-#term-overlay { overflow: hidden; }
-#term-header {
-  padding: 10px 16px; background: #252a30; display: flex;
-  align-items: center; justify-content: space-between; flex-shrink: 0;
-  border-radius: 12px 12px 0 0;
-}
-#term-header span {
-  font-size: 13px; font-weight: 600; color: #e6edf3;
-  flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-#term-header button {
-  background: none; border: none; color: #c9d1d9; font-size: 20px;
-  cursor: pointer; padding: 6px 10px; border-radius: 6px; line-height: 1;
-  flex-shrink: 0; min-width: 44px; min-height: 44px; display: flex;
-  align-items: center; justify-content: center;
-}
-#term-header button:hover { color: #e6edf3; }
-#term-container { flex: 1; padding: 8px; min-height: 0; overflow: hidden; min-width: 0; }
-.term-btn {
-  width: 28px; height: 28px; border: none; border-radius: 7px;
-  background: #2d3239; color: #8b949e; font-size: 12px; font-weight: 700;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  box-shadow: 2px 2px 5px #232830, -2px -2px 5px #373c42;
-  margin-right: 8px; flex-shrink: 0; transition: color .15s;
-}
-.term-btn:hover { color: #3fb950; }
-.term-btn:disabled { opacity: .35; cursor: not-allowed; }
-#mobile-kb {
-  flex-shrink: 0;
-  background: #252a30;
-  border-top: 1px solid #333940;
-  padding: 8px 8px 12px;
-}
-#mobile-kb-row {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-#mobile-kb-row::-webkit-scrollbar { display: none; }
-.mobile-key {
-  flex-shrink: 0;
-  min-width: 44px;
-  height: 40px;
-  padding: 0 12px;
-  background: #2d3239;
-  border: none;
-  border-radius: 8px;
-  color: #c9d1d9;
-  font-size: 13px;
-  cursor: pointer;
-  box-shadow: 2px 2px 5px #232830, -2px -2px 5px #373c42;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
-}
-.mobile-key:active {
-  box-shadow: inset 2px 2px 4px #232830, inset -2px -2px 4px #373c42;
-  color: #3fb950;
-}
 </style>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css"/>
-<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
 </head>
 <body>
 <header>
@@ -327,27 +248,6 @@
 </header>
 <div id="grid"></div>
 
-<div id="term-overlay" style="display:none">
-  <div id="term-modal">
-    <div id="term-header">
-      <span id="term-title"></span>
-      <button onclick="closeTerminal()">&#10005;</button>
-    </div>
-    <div id="term-container"></div>
-    <div id="mobile-kb" style="display:none">
-      <div id="mobile-kb-row">
-        <button class="mobile-key" id="mk-kbd">⌨</button>
-        <button class="mobile-key" id="mk-tab">Tab</button>
-        <button class="mobile-key" id="mk-ctrlc">^C</button>
-        <button class="mobile-key" id="mk-esc">Esc</button>
-        <button class="mobile-key" id="mk-up">↑</button>
-        <button class="mobile-key" id="mk-down">↓</button>
-        <button class="mobile-key" id="mk-left">←</button>
-        <button class="mobile-key" id="mk-right">→</button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <script>
 const grid = document.getElementById("grid");
@@ -380,12 +280,8 @@ function setFullscreen(unit) {
 }
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    if (activeTerm) {
-      closeTerminal();
-    } else if (fullscreenUnit) {
-      setFullscreen(fullscreenUnit);
-    }
+  if (e.key === "Escape" && fullscreenUnit) {
+    setFullscreen(fullscreenUnit);
   }
 });
 
@@ -413,14 +309,6 @@ function createPanel(service) {
   header.appendChild(indicator);
   header.appendChild(info);
   info.style.flex = "1";
-  if (service.has_terminal) {
-    const btn = document.createElement("button");
-    btn.className = "term-btn";
-    btn.title = "Open terminal";
-    btn.textContent = ">_";
-    btn.addEventListener("click", e => { e.stopPropagation(); openTerminal(service); });
-    header.appendChild(btn);
-  }
   header.appendChild(expandIcon);
   header.addEventListener("click", () => setFullscreen(service.unit));
 
@@ -486,148 +374,6 @@ function connectWebSocket(service, logContainer, statusLine, indicator) {
   };
 }
 
-let activeTerm = null, activeTermWs = null, termResizeObs = null, activeTermVVListener = null, activeTermOrientationListener = null;
-
-function openTerminal(service) {
-  document.getElementById("term-title").textContent = `Terminal \u2014 ${esc(service.name)}`;
-  document.getElementById("term-container").innerHTML = "";
-  document.getElementById("term-overlay").style.display = "flex";
-
-  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  // Use JS class instead of CSS media query so landscape mode is also full-screen
-  document.getElementById("term-modal").classList.toggle("is-mobile", isMobile);
-
-  const term = new Terminal({
-    theme: { background: "#1a1e24", foreground: "#c9d1d9", cursor: "#e6edf3", selectionBackground: "#3fb95040" },
-    fontFamily: '"Cascadia Code","Fira Code","JetBrains Mono",monospace',
-    fontSize: isMobile ? 14 : 13, cursorBlink: true, scrollback: 5000,
-  });
-  const fit = new FitAddon.FitAddon();
-  term.loadAddon(fit);
-  term.open(document.getElementById("term-container"));
-
-  // Fix iOS QuickType autocomplete injecting text into the terminal.
-  //
-  // How the bug works: xterm.js keeps typed characters in its hidden <textarea>
-  // (e.g. "ls") so it can diff-track input on mobile. iOS intercepts Enter at
-  // the OS level, applies a QuickType suggestion ("ls" → "lsle"), fires the
-  // `input` event, and THEN dispatches the keydown to JS. This means both
-  // `beforeinput.preventDefault()` and clearing on `keydown` fire too late.
-  //
-  // Fix: attach a capture-phase `input` listener (runs before xterm.js's
-  // bubble-phase listener). Track the last "safe" textarea value after each
-  // legitimate input. When we detect an autocomplete insertion — either via
-  // inputType="insertReplacementText" or via a control key (Enter/Tab/…)
-  // that produced printable data — restore the textarea and block xterm.js
-  // from seeing the event via stopImmediatePropagation.
-  if (isMobile && term.textarea) {
-    const ta = term.textarea;
-    ta.setAttribute('autocorrect', 'off');
-    ta.setAttribute('autocomplete', 'off');
-    ta.setAttribute('autocapitalize', 'none');
-    ta.setAttribute('spellcheck', 'false');
-
-    let safeValue = '';
-    let lastKeyWasControl = false;
-
-    // After each legitimate input, snapshot the settled textarea value
-    // (microtask runs after xterm.js's own bubble handler has finished).
-    const updateSafeValue = () => Promise.resolve().then(() => { safeValue = ta.value; });
-
-    ta.addEventListener('keydown', (e) => {
-      lastKeyWasControl = e.key.length > 1 || e.ctrlKey || e.metaKey || e.altKey;
-    }, true);
-
-    ta.addEventListener('input', (e) => {
-      const isAutocomplete =
-        e.inputType === 'insertReplacementText' ||
-        // Fallback: a control key (Enter, Tab, …) was pressed but the event
-        // carries printable data — that is QuickType, not a real keystroke.
-        (lastKeyWasControl && !!e.data && e.inputType !== 'insertLineBreak');
-
-      lastKeyWasControl = false;
-
-      if (isAutocomplete) {
-        ta.value = safeValue;         // undo the autocomplete insertion
-        e.stopImmediatePropagation(); // block xterm.js's bubble-phase handler
-        return;
-      }
-
-      updateSafeValue();
-    }, true); // capture phase — runs before xterm.js
-  }
-
-  if (isMobile) document.getElementById("mobile-kb").style.display = "block";
-
-  // Double RAF ensures flex layout is fully resolved before xterm measures the container
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    fit.fit();
-    const proto = location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${proto}//${location.host}/ws/terminal/${service.index}`);
-    ws.binaryType = "arraybuffer";
-
-    ws.onopen = () => ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-    ws.onmessage = e => term.write(new Uint8Array(e.data));
-    ws.onclose = () => term.writeln("\r\n\x1b[90m[session ended]\x1b[0m");
-    term.onData(data => ws.readyState === WebSocket.OPEN && ws.send(new TextEncoder().encode(data)));
-
-    // Smart debounce: orientation changes take ~300ms on iOS, so we track when
-    // the animation started and refuse to fit before 350ms have elapsed.
-    // Regular resize events (soft keyboard) still use the 100ms floor.
-    let fitTimer = null;
-    let orientationChangeEndTime = 0;
-    const doFit = () => {
-      fit.fit();
-      if (ws.readyState === WebSocket.OPEN)
-        ws.send(JSON.stringify({ type: "resize", cols: term.cols, rows: term.rows }));
-    };
-    const sendResize = () => {
-      clearTimeout(fitTimer);
-      const delay = Math.max(100, orientationChangeEndTime - Date.now());
-      fitTimer = setTimeout(doFit, delay);
-    };
-    const onOrientationChange = () => {
-      // Block any fit for 350ms from now; ResizeObserver calls during the
-      // animation will keep pushing the timer but never fire before this wall.
-      orientationChangeEndTime = Date.now() + 350;
-      sendResize();
-    };
-
-    termResizeObs = new ResizeObserver(sendResize);
-    termResizeObs.observe(document.getElementById("term-container"));
-
-    // Refit when mobile soft keyboard shows/hides
-    if (window.visualViewport) {
-      activeTermVVListener = sendResize;
-      window.visualViewport.addEventListener("resize", sendResize);
-    }
-
-    // Refit on orientation change (portrait ↔ landscape)
-    activeTermOrientationListener = onOrientationChange;
-    window.addEventListener('orientationchange', onOrientationChange);
-
-    activeTerm = term;
-    activeTermWs = ws;
-  }));
-}
-
-function closeTerminal() {
-  document.getElementById("term-overlay").style.display = "none";
-  document.getElementById("mobile-kb").style.display = "none";
-  document.getElementById("term-modal").classList.remove("is-mobile");
-  if (termResizeObs) { termResizeObs.disconnect(); termResizeObs = null; }
-  if (window.visualViewport && activeTermVVListener) {
-    window.visualViewport.removeEventListener("resize", activeTermVVListener);
-    activeTermVVListener = null;
-  }
-  if (activeTermOrientationListener) {
-    window.removeEventListener('orientationchange', activeTermOrientationListener);
-    activeTermOrientationListener = null;
-  }
-  if (activeTermWs)  { activeTermWs.close(); activeTermWs = null; }
-  if (activeTerm)    { activeTerm.dispose(); activeTerm = null; }
-}
-
 function esc(str) {
   const d = document.createElement("div");
   d.textContent = str;
@@ -645,31 +391,6 @@ async function init() {
   applyGridLayout(services.length);
   services.forEach(createPanel);
 }
-
-// Mobile keyboard toolbar
-const MOBILE_KEY_SEQS = {
-  'mk-tab':   '\t',
-  'mk-ctrlc': '\x03',
-  'mk-esc':   '\x1b',
-  'mk-up':    '\x1b[A',
-  'mk-down':  '\x1b[B',
-  'mk-left':  '\x1b[D',
-  'mk-right': '\x1b[C',
-};
-Object.entries(MOBILE_KEY_SEQS).forEach(([id, seq]) => {
-  document.getElementById(id).addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    if (activeTermWs?.readyState === WebSocket.OPEN)
-      activeTermWs.send(new TextEncoder().encode(seq));
-  }, { passive: false });
-});
-document.getElementById('mk-kbd').addEventListener('touchstart', (e) => {
-  e.preventDefault();
-  if (activeTerm) activeTerm.focus();
-}, { passive: false });
-document.getElementById('term-container').addEventListener('touchend', () => {
-  if (activeTerm) activeTerm.focus();
-});
 
 init();
 </script>
