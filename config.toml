@@ -28,3 +28,8 @@ name = "Trilium AI Web (Sync)"
 unit = "trilium-ai-sync.service"
 directory = "/home/pdesjardins/code/python-discord-scheduler-bot"
 
+[[services]]
+name = "Trilium Study Note"
+unit = "trilium-study.service"
+directory = "/home/pdesjardins/code/trilium-study"
+
