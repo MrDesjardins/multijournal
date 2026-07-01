@@ -33,3 +33,8 @@ name = "Trilium Study Note"
 unit = "trilium-study.service"
 directory = "/home/pdesjardins/code/trilium-study"
 
+[[services]]
+name = "Discord Family Bot"
+unit = "familybot.service"
+directory = "/home/pdesjardins/code/python-discord-family-bot"
+
